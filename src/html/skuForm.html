@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+
+<body>
+    <form id="form" onsubmit="return false">
+        <div class="row">
+            <div class="col s12">
+                <div class="input-field">
+                    <input id="sku" type="text" class="validate" pattern="[A-Za-z0-9]+" required>
+                    <label for="sku">SKU</label>
+                    <span class="helper-text" data-error="Only A-Z, a-z, 0-9 allowed (without space)">
+                        Enter The Item SKU
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col s8">
+                <div class="container">
+                    <div class="row">
+                        <button class="waves-effect waves-light btn col s12" onclick="endBatch(); return false"
+                            type="button">
+                            End Of Batch
+                        </button>
+                    </div>
+                    <div class="row">
+                        <button class="waves-effect waves-light btn col s12" onclick="endReturn()" type="button">
+                            End Of Return
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col s4">
+                <div class="container">
+                    <div class="row">
+                        <button class="waves-effect waves-light btn-large col s12 valign-wrapper red"
+                            onclick="insertStore(); return false" type="submit">
+                            Return
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+    <script type="text/JavaScript">
+        const data = <?!= JSON.stringify(data) ?>;
+
+        console.log(data);
+        const store = {};
+        function insertStore() {
+            const sku = document.getElementById('sku').value;
+            if(!sku) return;
+            const rowPre = 3; // rows to ignore before
+            const rowSuff = 0; // rows to ignore after
+            let flagFound = false;
+            const sheets = data.sheets;
+            for(let sheetNo = 1; sheetNo <= sheets.length; sheetNo++){
+                const sheet = sheets[sheetNo - 1];
+                if(store[sheet.name] === undefined) store[sheet.name] = [];
+                for(let rowNo = rowPre + 1; rowNo <= sheets[sheetNo - 1].data.length - rowSuff; rowNo++){
+                    const row = sheet.data[rowNo - 1];
+                    if(row[0] === sku) {
+                        flagFound = true;
+                        const _inBatch = inBatch(sku);
+                        if(!_inBatch){
+                            // only insert unique
+                            const index = store[sheet.name].indexOf(rowNo);
+                            if(index === -1){
+                                store[sheet.name].push(rowNo);
+                                M.toast({html: 'Added'})
+                            } else {
+                                M.toast({html: 'Already Added', classes: 'red'})
+                            }
+                        } else {
+                            M.toast({html: `Already In Batch #: ${_inBatch}`, classes: 'red'})
+                        }
+                    }
+                }
+            }
+            if(!flagFound) M.toast({html: `Not Found`, classes: 'red'})
+        }
+        function endReturn() {
+            pushBatch();
+            google.script.host.close();
+        }
+        function switchButtons(state){
+            const buttons = document.getElementsByTagName("button");
+            for (let button of buttons) {
+                button.disabled = state;
+            }
+        }
+        function endBatch() {
+            switchButtons(true);
+            pushBatch();
+        }
+        function pushBatch() {
+            console.log(data['batch']);
+            google.script.run.withSuccessHandler(handleSuccessPush).pushBatch(store, data['batch']);
+        }
+        function handleSuccessPush() {
+            google.script.run.init();
+        }
+        function inBatch(sku) {
+            const batched = data.batched;
+            let _inBatch;
+            for(let rowNo = 1; rowNo <= batched.length; rowNo++){
+                if(batched[rowNo - 1][0] === sku){
+                    return _inBatch;
+                } else if (batched[rowNo - 1][0] === "BATCH#") {
+                    _inBatch = batched[rowNo - 1][1]
+                }
+            }
+            return false;
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</body>
+
+</html>
