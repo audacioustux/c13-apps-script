@@ -33,7 +33,7 @@ function sku(batch) {
     .evaluate()
     .setSandboxMode(HtmlService.SandboxMode.IFRAME)
     .setWidth(800)
-    .setHeight(800);
+    .setHeight(300);
   SpreadsheetApp.getUi().showModalDialog(html, `Batch #: ${batch}`);
 }
 

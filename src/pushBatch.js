@@ -9,6 +9,8 @@ function pushBatch(data, batch) {
   }
   batchSheet.appendRow(['BATCH#', batch]);
 
+  const batStartRow = batchSheet.getLastRow();
+
   Object.keys(data).forEach(sheetName => {
     if (data[sheetName].length === 0) return;
 
@@ -49,7 +51,6 @@ function pushBatch(data, batch) {
     const batLastRow = batchSheet.getLastRow();
 
     retSheet.insertRowsBefore(retLastRow, data[sheetName].length);
-    // batchSheet.insertRows(batLastRow, data[sheetName].length);
 
     data[sheetName].forEach((rowNo, i) => {
       const row = sheet.getRange(rowNo, 1, 1, sheet.getLastColumn());
@@ -65,9 +66,19 @@ function pushBatch(data, batch) {
           .getRow()
       );
     });
+
+    retSheet
+      .getRange(retSheet.getLastRow(), 2)
+      .setFormula(`=COUNTA(A4:A${retSheet.getLastRow() - 1})`);
+    retSheet
+      .getRange(retSheet.getLastRow(), 4)
+      .setFormula(`=SUM(D4:D${retSheet.getLastRow() - 1})`);
   });
 
   batchSheet.appendRow(['nb item']);
+  batchSheet
+    .getRange(batchSheet.getLastRow(), 2)
+    .setFormula(`=COUNTA(B${batStartRow + 1}:B${batchSheet.getLastRow() - 1})`);
 }
 
 export default pushBatch;
