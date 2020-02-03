@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+
+<body>
+    <form id="form" onsubmit="return false">
+        <div class="row">
+            <div class="col s12">
+                <div class="input-field">
+                    <input id="sku" type="text" class="validate" pattern="[A-Za-z0-9]+" required>
+                    <label for="sku">SKU</label>
+                    <span class="helper-text" data-error="Only A-Z, a-z, 0-9 allowed (without space)">
+                        Enter The Item SKU
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col s8">
+                <div class="container">
+                    <div class="row">
+                        <button class="waves-effect waves-light btn col s12" onclick="endBatch(); return false"
+                            type="button">
+                            End Of Batch
+                        </button>
+                    </div>
+                    <div class="row">
+                        <button class="waves-effect waves-light btn col s12" onclick="endReturn()" type="button">
+                            End Of Return
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="col s4">
+                <div class="container">
+                    <div class="row">
+                        <button class="waves-effect waves-light btn-large col s12 valign-wrapper red"
+                            onclick="insertStore(); return false" type="submit">
+                            Return
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+    <script type="text/JavaScript">
+        const data = <?!= JSON.stringify(data) ?>;
+        const batch = <?= batch ?>;
+        
+        console.log(data);
+        
+        const batSheet = data.batched;
+        const batchHeader = ["BATCH#", batch];
+        let batchIndex = undefined;
+        let len = batSheet.length;
+        for(let rowNo = 0; rowNo < len; rowNo++){
+            if(batSheet[rowNo][0] === "BATCH#" && batSheet[rowNo][1] == batch){
+                batchIndex = rowNo;
+            }
+        }
+        if(batchIndex === undefined){
+            batSheet.push(batchHeader);
+            batchIndex = batSheet.length - 1;
+            batSheet.push([""]);
+        }
+        function insertStore() {
+            const sku = document.getElementById('sku').value;
+            if(!sku) return; // ignore false trigger if sku not set
+
+            let flagFound = false;
+            Object.keys(data.inv).some(invSheetName => {
+                const soldSheet = data.sold[`${invSheetName}_SOLD`];
+                const retSheet = data.ret[`${invSheetName}_RETURN`];
+                
+                const _isBatched = isBatched(sku);
+                if(_isBatched ){
+                    M.toast({html: `Already In Batch #: ${_isBatched}`, classes: 'red'});
+                    flagFound = true;
+                    return true;
+                }
+
+                return soldSheet.some((row, rowNo) => {
+                    if (row[0] === sku){
+                        flagFound = true;
+                        soldSheet.splice(rowNo, 1);
+                        retSheet.push(row);
+                        batSheet.splice(batchIndex + 1, 0, row);
+                        M.toast({ html: 'Added' })
+                        return true;
+                    }
+                })
+            })
+            if(!flagFound) M.toast({html: `Not Found`, classes: 'red'});
+        }
+
+        // end script
+        function endReturn() {
+            pushChanges(google.script.host.close);
+        }
+        // toggle form buttons state
+        function disableButtons(disabled){
+            const buttons = document.getElementsByTagName("button");
+            for (let button of buttons) {
+                button.disabled = disabled;
+            }
+        }
+        // end of Batch
+        function endBatch() {
+            disableButtons(true);
+            pushChanges(runInit);
+        }
+        // flash all changes
+        function pushChanges(successHandler) {
+            updateNbCount();
+            normalizeData();
+
+            console.log(data);
+            google.script.run.withSuccessHandler(successHandler).pushChanges(data);
+        }
+        // re-run script
+        function runInit() {
+            google.script.run.init();
+        }
+        // return batch number if already batched;
+        // else false
+        function isBatched(sku) {
+            let batch;
+            for(let rowNo = 0; rowNo < batSheet.length; rowNo++){
+                if(batSheet[rowNo][0] === sku){
+                    return batch;
+                } else if (batSheet[rowNo][0] === "BATCH#") {
+                    batch = batSheet[rowNo][1]
+                }
+            }
+            return false;
+        }
+        function extendArr(arr, len, fill = '') {
+            const prevLen = arr.length;
+            arr.length = len;
+            arr.fill(fill, prevLen, arr.length);
+        }
+        function fixColumns(sheetData) {
+            const sheetMaxColumn = sheetData
+                .map(v => v.length)
+                .sort()
+                .pop();
+            sheetData.forEach(row => {
+                extendArr(row, sheetMaxColumn)
+            })
+        }
+        // normalize sheet data
+        function normalizeData() {
+            fixColumns(data.batched);
+        }
+        function updateNbCount() {
+            len = batSheet.length;
+            for(let rowNo = batchIndex + 1; rowNo < len; rowNo++){
+                if(batSheet[rowNo][0] == ""){
+                    batSheet.splice(rowNo, 0, ["nb item", rowNo - batchIndex - 1]);
+                } else if(batSheet[rowNo][0] == "nb item") {
+                    batSheet[rowNo][1] = rowNo - batchIndex - 1;
+                }
+            }
+        }
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</body>
+
+</html>

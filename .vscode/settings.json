@@ -13,5 +13,9 @@
   "eslint.alwaysShowStatus": true,
   "eslint.validate": [
     "javascript"
-  ]
+  ],
+  "files.associations": {
+    "*.json": "jsonc",
+    "random": "cpp"
+  }
 }
